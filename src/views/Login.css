@@ -1,0 +1,37 @@
+/* --- Clases extraídas del JSX para limpiar el código --- */
+
+.login-title {
+  margin: 0 0 5px 0;
+  color: #2c3e50;
+}
+
+.login-subtitle {
+  color: #7f8c8d;
+  margin: 0 0 20px 0;
+}
+
+.pin-dot {
+  margin: 0 5px;
+  color: #2c3e50;
+}
+
+.pin-dot.vacio {
+  color: #bdc3c7;
+}
+
+.error-msg {
+  color: #e74c3c;
+  font-weight: bold;
+  margin: 0 0 15px 0;
+}
+
+.fondo-container {
+  text-align: left;
+}
+
+.fondo-label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: bold;
+  color: #34495e;
+}

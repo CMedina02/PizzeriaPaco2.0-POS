@@ -52,6 +52,52 @@ function Mostrador() {
   const productosFiltrados = productos.filter(p => p.categoria_id === categoriaActiva);
   const totalComanda = comanda.reduce((suma, item) => suma + item.precio_base, 0);
 
+  // 5. Motor Transaccional: Guardar el ticket en la base de datos
+  async function cobrarOrden() {
+    try {
+      const db = await Database.load("sqlite:pizzeria.db");
+
+      // Paso A: Mock de Seguridad (Crear turno fantasma si no existe)
+      const userCount = await db.select("SELECT COUNT(*) as total FROM usuarios");
+      if (userCount[0].total === 0) {
+        await db.execute("INSERT INTO usuarios (nombre, pin_acceso, rol) VALUES ('Admin', '1234', 'admin')");
+        // Insertamos la fecha en formato ISO para la apertura de caja
+        const fechaApertura = new Date().toISOString();
+        await db.execute("INSERT INTO sesiones_caja (usuario_abrio_id, fecha_hora_apertura, fondo_inicial, estado) VALUES (1, $1, 500.0, 'Abierta')", [fechaApertura]);
+      }
+
+      // Obtenemos el ID de la sesión activa
+      const sesion = await db.select("SELECT id FROM sesiones_caja WHERE estado = 'Abierta' LIMIT 1");
+      const sesionId = sesion[0].id;
+
+      // Paso B: Insertar la Cabecera del Pedido
+      const fechaHoraPedido = new Date().toISOString();
+      const resultadoPedido = await db.execute(
+        "INSERT INTO pedidos (sesion_caja_id, fecha_hora, total, metodo_pago, estado_pedido, es_para_entrega) VALUES ($1, $2, $3, $4, $5, $6)",
+        [sesionId, fechaHoraPedido, totalComanda, 'Efectivo', 'Pagado', 0]
+      );
+
+      // Tauri nos devuelve el ID (folio) que SQLite le asignó automáticamente a este pedido
+      const pedidoId = resultadoPedido.lastInsertId;
+
+      // Paso C: Insertar el Detalle del Pedido (Línea por línea)
+      for (const item of comanda) {
+        await db.execute(
+          "INSERT INTO detalle_pedidos (pedido_id, producto_id, cantidad, precio_cobrado) VALUES ($1, $2, $3, $4)",
+          [pedidoId, item.id, 1, item.precio_base]
+        );
+      }
+
+      // Paso D: Limpiar el mostrador para el siguiente cliente en la fila
+      setComanda([]);
+      alert(`¡Cobro exitoso!\nTicket Folio: #${pedidoId} registrado correctamente.`);
+
+    } catch (error) {
+      console.error("Error crítico al procesar el cobro:", error);
+      alert("Error al procesar el pago. Revisa la consola.");
+    }
+  }
+
   return (
     <div className="mostrador-layout">
       {/* PANEL IZQUIERDO: CATÁLOGO DINÁMICO */}
@@ -85,16 +131,17 @@ function Mostrador() {
         </div>
       </section>
 
-      {/* PANEL DERECHO: TICKET INTERACTIVO */}
+      {/* PANEL DERECHO: TICKET INTERACTIVO (Refactorizado) */}
       <aside className="seccion-comanda">
         <h3>Orden Actual</h3>
-        <div className="lista-items" style={{ alignItems: comanda.length === 0 ? "center" : "flex-start", padding: "10px 0" }}>
+        
+        <div className={`lista-items ${comanda.length === 0 ? 'vacia' : 'con-elementos'}`}>
           {comanda.length === 0 ? (
             <p className="vacio-txt">La comanda está vacía</p>
           ) : (
-            <ul style={{ width: "100%", padding: 0, listStyle: "none", margin: 0 }}>
+            <ul className="comanda-lista">
               {comanda.map((item, index) => (
-                <li key={index} style={{ display: "flex", justifyContent: "space-between", padding: "12px 0", borderBottom: "1px solid #f0f0f0", color: "#2c3e50" }}>
+                <li key={index} className="comanda-item">
                   <span>{item.nombre}</span>
                   <strong>${item.precio_base.toFixed(2)}</strong>
                 </li>
@@ -102,14 +149,18 @@ function Mostrador() {
             </ul>
           )}
         </div>
+
         <footer className="comanda-footer">
           <div className="fila-total">
             <span>Total:</span>
             <strong>${totalComanda.toFixed(2)}</strong>
           </div>
-          {/* El botón se habilita automáticamente solo si hay cosas en el ticket */}
-          <button className="btn-cobrar" disabled={comanda.length === 0}>
-            Cobrar Turno
+          <button 
+            className="btn-cobrar" 
+            disabled={comanda.length === 0}
+            onClick={cobrarOrden}
+          >
+            Cobrar Orden
           </button>
         </footer>
       </aside>

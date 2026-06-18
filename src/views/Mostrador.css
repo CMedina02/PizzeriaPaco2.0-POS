@@ -147,3 +147,29 @@
   background-color: #bdc3c7;
   cursor: not-allowed;
 }
+/* Nuevas clases para limpiar los estilos en línea del ticket */
+
+.lista-items.vacia {
+  align-items: center;
+  justify-content: center;
+}
+
+.lista-items.con-elementos {
+  align-items: flex-start;
+  padding: 10px 0;
+}
+
+.comanda-lista {
+  width: 100%;
+  padding: 0;
+  list-style: none;
+  margin: 0;
+}
+
+.comanda-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid #f0f0f0;
+  color: #2c3e50;
+}

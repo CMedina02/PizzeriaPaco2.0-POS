@@ -1,0 +1,149 @@
+/* Contenedor maestro que ocupa toda la pantalla */
+.mostrador-layout {
+  display: flex;
+  height: 100vh;
+  background-color: #f4f6f8;
+  color: #333;
+  margin: -2rem; /* Compensa el padding por defecto del App.css */
+}
+
+/* Panel Izquierdo: Menú interactivo */
+.seccion-menu {
+  flex: 1;
+  padding: 2rem;
+  overflow-y: auto;
+}
+
+.menu-header h2 {
+  margin-top: 0;
+  color: #2c3e50;
+  font-size: 1.8rem;
+}
+
+.categorias-bar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 2rem;
+}
+
+.tab-categoria {
+  padding: 12px 24px;
+  border: none;
+  background-color: #e9ecef;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  color: #495057;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+}
+
+.tab-categoria.activa {
+  background-color: #e67e22;
+  color: white;
+  box-shadow: 0 4px 6px rgba(230, 126, 34, 0.3);
+}
+
+.tab-categoria:hover:not(.activa) {
+  background-color: #dee2e6;
+}
+
+/* Cuadrícula de productos estilo botones táctiles */
+.cuadricula-productos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 1rem;
+}
+
+.producto-card {
+  background: white;
+  padding: 1.5rem 1rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  text-align: center;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.producto-card:hover {
+  border-color: #e67e22;
+  transform: translateY(-2px);
+}
+
+.producto-card h4 {
+  margin: 0 0 10px 0;
+  font-size: 1.1rem;
+  color: #34495e;
+}
+
+.producto-card .precio {
+  color: #27ae60;
+  font-weight: 800;
+  font-size: 1.2rem;
+}
+
+/* Panel Derecho: Ticket / Comanda */
+.seccion-comanda {
+  width: 380px;
+  background: white;
+  border-left: 1px solid #e0e0e0;
+  display: flex;
+  flex-direction: column;
+  padding: 2rem;
+  box-shadow: -4px 0 15px rgba(0,0,0,0.03);
+}
+
+.seccion-comanda h3 {
+  margin-top: 0;
+  border-bottom: 2px solid #f0f0f0;
+  padding-bottom: 15px;
+  color: #2c3e50;
+}
+
+.lista-items {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vacio-txt {
+  color: #a4b0be;
+  font-style: italic;
+  font-size: 1.1rem;
+}
+
+.comanda-footer {
+  border-top: 2px solid #f0f0f0;
+  padding-top: 20px;
+  margin-top: auto;
+}
+
+.fila-total {
+  display: flex;
+  justify-content: space-between;
+  font-size: 1.4rem;
+  margin-bottom: 20px;
+  color: #2c3e50;
+}
+
+.btn-cobrar {
+  width: 100%;
+  padding: 18px;
+  background-color: #27ae60;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 1.2rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-cobrar:disabled {
+  background-color: #bdc3c7;
+  cursor: not-allowed;
+}

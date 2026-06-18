@@ -1,3 +1,81 @@
+/* src/views/Login.css */
+.login-layout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background-color: #2c3e50; /* Fondo oscuro y profesional */
+  margin: -2rem; /* Compensa el padding de App.css */
+}
+
+.login-card {
+  background: white;
+  padding: 2.5rem;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+  text-align: center;
+  max-width: 400px;
+  width: 100%;
+}
+
+.pin-display {
+  font-size: 2rem;
+  letter-spacing: 0.5rem;
+  background: #f4f6f8;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  min-height: 3rem;
+  display: flex;
+  justify-content: center;
+}
+
+.numpad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 1rem;
+}
+
+.btn-num {
+  background: #e9ecef;
+  border: none;
+  font-size: 1.5rem;
+  padding: 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  color: #2c3e50;
+  transition: 0.1s;
+}
+
+.btn-num:active {
+  background: #bdc3c7;
+  transform: scale(0.95);
+}
+
+.btn-borrar { background: #e74c3c; color: white; }
+.btn-borrar:active { background: #c0392b; }
+
+.btn-ingresar { background: #27ae60; color: white; }
+.btn-ingresar:active { background: #219653; }
+
+.input-fondo {
+  width: 100%;
+  padding: 12px;
+  font-size: 1.2rem;
+  border: 2px solid #bdc3c7;
+  border-radius: 6px;
+  text-align: center;
+  margin-bottom: 1.5rem;
+  box-sizing: border-box;
+}
+
+.input-fondo:focus {
+  border-color: #3498db;
+  outline: none;
+}
 /* --- Clases extraídas del JSX para limpiar el código --- */
 
 .login-title {

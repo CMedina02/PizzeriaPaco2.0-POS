@@ -1,0 +1,114 @@
+/* src/components/ModalMitad.css */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(44, 62, 80, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  padding: 2rem;
+  border-radius: 12px;
+  width: 500px;
+  max-width: 90%;
+  box-shadow: 0 15px 30px rgba(0,0,0,0.2);
+}
+
+.modal-title {
+  margin-top: 0;
+  color: #2c3e50;
+  border-bottom: 2px solid #f0f0f0;
+  padding-bottom: 10px;
+}
+
+.opciones-tipo {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.btn-tipo {
+  flex: 1;
+  padding: 15px;
+  border: 2px solid #e9ecef;
+  background: white;
+  border-radius: 8px;
+  font-weight: bold;
+  color: #34495e;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.btn-tipo.activo {
+  border-color: #e67e22;
+  background: #fff3e0;
+  color: #d35400;
+}
+
+.selector-sabores {
+  margin-bottom: 20px;
+}
+
+.sabor-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.btn-sabor {
+  padding: 12px;
+  border: 1px solid #bdc3c7;
+  background: #f8f9fa;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  color: #2c3e50;
+}
+
+.btn-sabor.seleccionado {
+  background: #27ae60;
+  color: white;
+  border-color: #2ecc71;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+  border-top: 2px solid #f0f0f0;
+  padding-top: 15px;
+}
+
+.btn-cancelar {
+  padding: 12px 24px;
+  background: #95a5a6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.btn-confirmar {
+  padding: 12px 24px;
+  background: #27ae60;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.btn-confirmar:disabled {
+  background: #bdc3c7;
+  cursor: not-allowed;
+}

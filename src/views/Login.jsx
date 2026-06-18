@@ -77,20 +77,22 @@ function Login({ onLoginSuccess }) {
   return (
     <div className="login-layout">
       <div className="login-card">
-        <h2 style={{ margin: "0 0 5px 0", color: "#2c3e50" }}>Apertura de Caja</h2>
-        <p style={{ color: "#7f8c8d", margin: "0 0 20px 0" }}>Ingresa tu PIN para iniciar turno</p>
+        <h2 className="login-title">Apertura de Caja</h2>
+        <p className="login-subtitle">Ingresa tu PIN para iniciar turno</p>
         
         {/* Pantalla del PIN oculto */}
         <div className="pin-display">
           {pin.padEnd(4, '•').split('').map((char, i) => (
-            <span key={i} style={{ margin: "0 5px", color: char === '•' ? '#bdc3c7' : '#2c3e50' }}>{char}</span>
+            <span key={i} className={`pin-dot ${char === '•' ? 'vacio' : ''}`}>
+              {char}
+            </span>
           ))}
         </div>
 
-        {error && <p style={{ color: "#e74c3c", fontWeight: "bold", margin: "0 0 15px 0" }}>{error}</p>}
+        {error && <p className="error-msg">{error}</p>}
 
-        <div style={{ textAlign: "left" }}>
-          <label style={{ display: "block", marginBottom: "8px", fontWeight: "bold", color: "#34495e" }}>Fondo Fijo Inicial ($):</label>
+        <div className="fondo-container">
+          <label className="fondo-label">Fondo Fijo Inicial ($):</label>
           <input 
             type="number" 
             className="input-fondo"

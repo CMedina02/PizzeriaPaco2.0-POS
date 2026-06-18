@@ -1,34 +1,24 @@
 import { useState, useEffect } from "react";
 import Database from "@tauri-apps/plugin-sql";
+import ModalMitad from "../components/ModalMitad";
 import "./Mostrador.css";
 
 function Mostrador() {
-  // 1. Memoria de la aplicación (Estados)
   const [categorias, setCategorias] = useState([]);
   const [productos, setProductos] = useState([]);
   const [categoriaActiva, setCategoriaActiva] = useState(null);
-  const [comanda, setComanda] = useState([]); // Este es nuestro carrito/ticket
+  const [comanda, setComanda] = useState([]);
+  const [pizzaEnEdicion, setPizzaEnEdicion] = useState(null);
 
-  // 2. Función para conectar a la base de datos y traer el catálogo
   async function inicializarDatos() {
     try {
       const db = await Database.load("sqlite:pizzeria.db");
-
-      // Truco de desarrollo: Si la base de datos está vacía, inyectamos datos de prueba
-      const catCount = await db.select("SELECT COUNT(*) as total FROM categorias");
-      if (catCount[0].total === 0) {
-        await db.execute("INSERT INTO categorias (nombre) VALUES ('Pizzas'), ('Bebidas')");
-        await db.execute("INSERT INTO productos (categoria_id, nombre, precio_base) VALUES (1, 'Pizza Pepperoni', 149.00), (1, 'Pizza Hawaiana', 149.00), (2, 'Refresco de Cola', 35.00)");
-      }
-
-      // Cargamos los catálogos reales a la memoria de React
       const categoriasDB = await db.select("SELECT * FROM categorias");
       const productosDB = await db.select("SELECT * FROM productos");
 
       setCategorias(categoriasDB);
       setProductos(productosDB);
 
-      // Si hay categorías, seleccionamos la primera por defecto para que no inicie en blanco
       if (categoriasDB.length > 0) {
         setCategoriaActiva(categoriasDB[0].id);
       }
@@ -37,59 +27,63 @@ function Mostrador() {
     }
   }
 
-  // Se ejecuta automáticamente una sola vez al abrir la pantalla
   useEffect(() => {
     inicializarDatos();
   }, []);
 
-  // 3. Lógica del Cajero: Simular el "toque" en la pantalla
-  function agregarAComanda(producto) {
-    // Tomamos la comanda actual y le sumamos el nuevo producto al final
-    setComanda([...comanda, producto]);
+  function procesarClickProducto(producto) {
+    if (producto.categoria_id === 1) {
+      setPizzaEnEdicion(producto);
+    } else {
+      setComanda([...comanda, { ...producto, producto_id: producto.id }]);
+    }
   }
 
-  // 4. Lógica de Vista: Filtramos productos por categoría y sumamos el total
+  function agregarItemPersonalizado(item) {
+    setComanda([...comanda, item]);
+    setPizzaEnEdicion(null);
+  }
+
   const productosFiltrados = productos.filter(p => p.categoria_id === categoriaActiva);
   const totalComanda = comanda.reduce((suma, item) => suma + item.precio_base, 0);
 
-  // 5. Motor Transaccional: Guardar el ticket en la base de datos
   async function cobrarOrden() {
     try {
       const db = await Database.load("sqlite:pizzeria.db");
-
-      // Paso A: Mock de Seguridad (Crear turno fantasma si no existe)
-      const userCount = await db.select("SELECT COUNT(*) as total FROM usuarios");
-      if (userCount[0].total === 0) {
-        await db.execute("INSERT INTO usuarios (nombre, pin_acceso, rol) VALUES ('Admin', '1234', 'admin')");
-        // Insertamos la fecha en formato ISO para la apertura de caja
-        const fechaApertura = new Date().toISOString();
-        await db.execute("INSERT INTO sesiones_caja (usuario_abrio_id, fecha_hora_apertura, fondo_inicial, estado) VALUES (1, $1, 500.0, 'Abierta')", [fechaApertura]);
-      }
-
-      // Obtenemos el ID de la sesión activa
+      
       const sesion = await db.select("SELECT id FROM sesiones_caja WHERE estado = 'Abierta' LIMIT 1");
       const sesionId = sesion[0].id;
 
-      // Paso B: Insertar la Cabecera del Pedido
-      const fechaHoraPedido = new Date().toISOString();
-      const resultadoPedido = await db.execute(
-        "INSERT INTO pedidos (sesion_caja_id, fecha_hora, total, metodo_pago, estado_pedido, es_para_entrega) VALUES ($1, $2, $3, $4, $5, $6)",
-        [sesionId, fechaHoraPedido, totalComanda, 'Efectivo', 'Pagado', 0]
+      // 1. Insertamos Cabecera Atómicamente
+      const resultadoPedido = await db.select(
+        "INSERT INTO pedidos (sesion_caja_id, fecha_hora, total, metodo_pago, estado_pedido, es_para_entrega) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
+        [sesionId, new Date().toISOString(), totalComanda, 'Efectivo', 'Pagado', 0]
       );
+      
+      const pedidoId = resultadoPedido[0].id;
 
-      // Tauri nos devuelve el ID (folio) que SQLite le asignó automáticamente a este pedido
-      const pedidoId = resultadoPedido.lastInsertId;
-
-      // Paso C: Insertar el Detalle del Pedido (Línea por línea)
+      // 2. Insertamos Detalle evadiendo las llaves foráneas rotas
       for (const item of comanda) {
+        let finalProductId = item.producto_id;
+
+        // Si es una pizza combinada, la creamos como un producto nuevo "al vuelo"
+        if (item.sabor2_id) {
+          const resNuevoProd = await db.select(
+            "INSERT INTO productos (categoria_id, nombre, precio_base) VALUES (1, $1, $2) RETURNING id",
+            [item.nombre, item.precio_base]
+          );
+          finalProductId = resNuevoProd[0].id;
+        }
+
+        // Guardamos el detalle limpio, usando solo el ID del producto
         await db.execute(
           "INSERT INTO detalle_pedidos (pedido_id, producto_id, cantidad, precio_cobrado) VALUES ($1, $2, $3, $4)",
-          [pedidoId, item.id, 1, item.precio_base]
+          [pedidoId, finalProductId, 1, item.precio_base]
         );
       }
 
-      // Paso D: Limpiar el mostrador para el siguiente cliente en la fila
       setComanda([]);
+      inicializarDatos(); // Recarga el catálogo para mostrar la nueva combinación
       alert(`¡Cobro exitoso!\nTicket Folio: #${pedidoId} registrado correctamente.`);
 
     } catch (error) {
@@ -100,7 +94,15 @@ function Mostrador() {
 
   return (
     <div className="mostrador-layout">
-      {/* PANEL IZQUIERDO: CATÁLOGO DINÁMICO */}
+      {pizzaEnEdicion && (
+        <ModalMitad 
+          pizzaInicial={pizzaEnEdicion}
+          productosDisponibles={productos}
+          onConfirmar={agregarItemPersonalizado}
+          onCancelar={() => setPizzaEnEdicion(null)}
+        />
+      )}
+
       <section className="seccion-menu">
         <header className="menu-header">
           <h2>Menú Digital</h2>
@@ -122,7 +124,7 @@ function Mostrador() {
             <div
               key={prod.id}
               className="producto-card"
-              onClick={() => agregarAComanda(prod)}
+              onClick={() => procesarClickProducto(prod)}
             >
               <h4>{prod.nombre}</h4>
               <span className="precio">${prod.precio_base.toFixed(2)}</span>
@@ -131,7 +133,6 @@ function Mostrador() {
         </div>
       </section>
 
-      {/* PANEL DERECHO: TICKET INTERACTIVO (Refactorizado) */}
       <aside className="seccion-comanda">
         <h3>Orden Actual</h3>
         

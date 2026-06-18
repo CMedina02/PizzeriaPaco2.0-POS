@@ -44,7 +44,7 @@ function App() {
         <h3>Categorías en la Base de Datos:</h3>
         <ul className="lista-categorias">
           {categorias.length === 0 ? (
-            <li>No hay categorías aún...</li>
+            <li>No hay categorías aún...</li> 
           ) : (
             categorias.map((cat) => (
               <li key={cat.id}>

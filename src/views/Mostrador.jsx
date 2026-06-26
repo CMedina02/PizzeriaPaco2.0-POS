@@ -1,41 +1,38 @@
 import { useState, useEffect } from "react";
-import Database from "@tauri-apps/plugin-sql";
+import { obtenerCatalogo, procesarCobro } from "../services/posService";
 import ModalMitad from "../components/ModalMitad";
 import "./Mostrador.css";
 
-function Mostrador() {
+function Mostrador({ onIrACorte }) {
   const [categorias, setCategorias] = useState([]);
   const [productos, setProductos] = useState([]);
   const [categoriaActiva, setCategoriaActiva] = useState(null);
   const [comanda, setComanda] = useState([]);
   const [pizzaEnEdicion, setPizzaEnEdicion] = useState(null);
 
-  async function inicializarDatos() {
-    try {
-      const db = await Database.load("sqlite:pizzeria.db");
-      const categoriasDB = await db.select("SELECT * FROM categorias");
-      const productosDB = await db.select("SELECT * FROM productos");
-
-      setCategorias(categoriasDB);
-      setProductos(productosDB);
-
-      if (categoriasDB.length > 0) {
-        setCategoriaActiva(categoriasDB[0].id);
-      }
-    } catch (error) {
-      console.error("Error al cargar la base de datos:", error);
-    }
-  }
-
   useEffect(() => {
-    inicializarDatos();
+    async function cargarDatos() {
+      try {
+        const datos = await obtenerCatalogo();
+        setCategorias(datos.categorias);
+        setProductos(datos.productos);
+
+        if (datos.categorias.length > 0) {
+          setCategoriaActiva(datos.categorias[0].id);
+        }
+      } catch (error) {
+        console.error("Error al cargar el catálogo desde el servicio:", error);
+      }
+    }
+    
+    cargarDatos();
   }, []);
 
   function procesarClickProducto(producto) {
     if (producto.categoria_id === 1) {
       setPizzaEnEdicion(producto);
     } else {
-      setComanda([...comanda, { ...producto, producto_id: producto.id }]);
+      setComanda([...comanda, { ...producto, producto_id: producto.id, sabor1_id: null, sabor2_id: null }]);
     }
   }
 
@@ -47,48 +44,18 @@ function Mostrador() {
   const productosFiltrados = productos.filter(p => p.categoria_id === categoriaActiva);
   const totalComanda = comanda.reduce((suma, item) => suma + item.precio_base, 0);
 
-  async function cobrarOrden() {
+  async function ejecutarCobro() {
     try {
-      const db = await Database.load("sqlite:pizzeria.db");
-      
-      const sesion = await db.select("SELECT id FROM sesiones_caja WHERE estado = 'Abierta' LIMIT 1");
-      const sesionId = sesion[0].id;
-
-      // 1. Insertamos Cabecera Atómicamente
-      const resultadoPedido = await db.select(
-        "INSERT INTO pedidos (sesion_caja_id, fecha_hora, total, metodo_pago, estado_pedido, es_para_entrega) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
-        [sesionId, new Date().toISOString(), totalComanda, 'Efectivo', 'Pagado', 0]
-      );
-      
-      const pedidoId = resultadoPedido[0].id;
-
-      // 2. Insertamos Detalle evadiendo las llaves foráneas rotas
-      for (const item of comanda) {
-        let finalProductId = item.producto_id;
-
-        // Si es una pizza combinada, la creamos como un producto nuevo "al vuelo"
-        if (item.sabor2_id) {
-          const resNuevoProd = await db.select(
-            "INSERT INTO productos (categoria_id, nombre, precio_base) VALUES (1, $1, $2) RETURNING id",
-            [item.nombre, item.precio_base]
-          );
-          finalProductId = resNuevoProd[0].id;
-        }
-
-        // Guardamos el detalle limpio, usando solo el ID del producto
-        await db.execute(
-          "INSERT INTO detalle_pedidos (pedido_id, producto_id, cantidad, precio_cobrado) VALUES ($1, $2, $3, $4)",
-          [pedidoId, finalProductId, 1, item.precio_base]
-        );
-      }
-
+      const pedidoId = await procesarCobro(comanda, totalComanda);
       setComanda([]);
-      inicializarDatos(); // Recarga el catálogo para mostrar la nueva combinación
-      alert(`¡Cobro exitoso!\nTicket Folio: #${pedidoId} registrado correctamente.`);
-
+      alert(`Cobro exitoso.\nFolio: #${pedidoId} registrado correctamente.`);
     } catch (error) {
-      console.error("Error crítico al procesar el cobro:", error);
-      alert("Error al procesar el pago. Revisa la consola.");
+      console.error("Error crítico en la transacción:", error);
+      if (error.message === "CAJA_CERRADA") {
+        alert("Operación denegada: No hay una sesión de caja abierta.");
+      } else {
+        alert("Error al procesar el pago. Revise la consola técnica.");
+      }
     }
   }
 
@@ -106,6 +73,11 @@ function Mostrador() {
       <section className="seccion-menu">
         <header className="menu-header">
           <h2>Menú Digital</h2>
+          
+          <button onClick={onIrACorte} style={{ cursor: "pointer", padding: "8px 16px", marginBottom: "10px" }}>
+            Ir a Corte de Caja
+          </button>
+
           <div className="categorias-bar">
             {categorias.map(cat => (
               <button
@@ -159,7 +131,7 @@ function Mostrador() {
           <button 
             className="btn-cobrar" 
             disabled={comanda.length === 0}
-            onClick={cobrarOrden}
+            onClick={ejecutarCobro}
           >
             Cobrar Orden
           </button>

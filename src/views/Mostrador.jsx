@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { obtenerCatalogo, procesarCobro } from "../services/posService";
 import ModalMitad from "../components/ModalMitad";
+import TicketModal from "../components/TicketModal";
 import "./Mostrador.css";
 
 function Mostrador({ onIrACorte }) {
@@ -9,6 +10,7 @@ function Mostrador({ onIrACorte }) {
   const [categoriaActiva, setCategoriaActiva] = useState(null);
   const [comanda, setComanda] = useState([]);
   const [pizzaEnEdicion, setPizzaEnEdicion] = useState(null);
+  const [ticketGenerado, setTicketGenerado] = useState(null);
 
   useEffect(() => {
     async function cargarDatos() {
@@ -47,8 +49,15 @@ function Mostrador({ onIrACorte }) {
   async function ejecutarCobro() {
     try {
       const pedidoId = await procesarCobro(comanda, totalComanda);
+      
+      // Despliegue del Ticket Digital en lugar de la alerta
+      setTicketGenerado({
+        folio: pedidoId,
+        comanda: [...comanda],
+        total: totalComanda
+      });
+      
       setComanda([]);
-      alert(`Cobro exitoso.\nFolio: #${pedidoId} registrado correctamente.`);
     } catch (error) {
       console.error("Error crítico en la transacción:", error);
       if (error.message === "CAJA_CERRADA") {
@@ -67,6 +76,15 @@ function Mostrador({ onIrACorte }) {
           productosDisponibles={productos}
           onConfirmar={agregarItemPersonalizado}
           onCancelar={() => setPizzaEnEdicion(null)}
+        />
+      )}
+
+      {ticketGenerado && (
+        <TicketModal 
+          folio={ticketGenerado.folio}
+          comanda={ticketGenerado.comanda}
+          total={ticketGenerado.total}
+          onCerrar={() => setTicketGenerado(null)}
         />
       )}
 

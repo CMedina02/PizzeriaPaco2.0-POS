@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { obtenerDatosCorte, ejecutarCierreTurno } from "../services/adminService";
+import TicketCorte from "../components/TicketCorte";
+import "./CorteCaja.css";
 
 function CorteCaja({ onTurnoCerrado, onVolver }) {
   const [datosTurno, setDatosTurno] = useState({
@@ -10,6 +12,7 @@ function CorteCaja({ onTurnoCerrado, onVolver }) {
     idSesion: null
   });
   const [error, setError] = useState(null);
+  const [mostrarTicketZ, setMostrarTicketZ] = useState(false);
 
   useEffect(() => {
     async function cargarCorte() {
@@ -33,41 +36,71 @@ function CorteCaja({ onTurnoCerrado, onVolver }) {
     if (!datosTurno.idSesion) return;
 
     try {
+      // 1. Ejecutamos el cierre en la base de datos primero para asegurar la integridad
       await ejecutarCierreTurno(datosTurno.idSesion);
-      alert("Turno cerrado correctamente.\nEl sistema se bloqueará hasta el siguiente turno.");
-      onTurnoCerrado(); 
+      
+      // 2. Mostramos el comprobante digital en pantalla
+      setMostrarTicketZ(true);
     } catch (err) {
       console.error("Error al cerrar la caja:", err);
-      alert("Error al intentar cerrar el turno.");
+      alert("Error al intentar cerrar el turno. Revise la consola.");
     }
   }
 
   return (
-    <div>
-      <h2>Corte de Caja</h2>
-      {error ? (
-        <div style={{ color: "red", margin: "20px 0" }}>
-          <p>{error}</p>
-          <button onClick={onVolver}>Volver al Mostrador</button>
-        </div>
-      ) : (
-        <>
-          <p>Revise que el efectivo físico coincida con el esperado en el sistema.</p>
-
-          <div style={{ margin: "20px 0", border: "1px solid black", padding: "15px" }}>
-            <p><strong>Fondo Fijo Inicial:</strong> ${datosTurno.fondoInicial.toFixed(2)}</p>
-            <p><strong>Total de Ventas:</strong> ${datosTurno.totalVentas.toFixed(2)}</p>
-            <p><strong>Tickets Emitidos:</strong> {datosTurno.pedidosRealizados}</p>
-            <hr />
-            <h3><strong>Efectivo Esperado en Cajón:</strong> ${datosTurno.esperadoCaja.toFixed(2)}</h3>
-          </div>
-
-          <div>
-            <button onClick={onVolver} style={{ marginRight: "10px" }}>Volver al Mostrador</button>
-            <button onClick={procesarCierre}>Confirmar Cierre de Turno</button>
-          </div>
-        </>
+    <div className="corte-layout">
+      {/* Superposición del Ticket de Cierre */}
+      {mostrarTicketZ && (
+        <TicketCorte 
+          datos={datosTurno} 
+          onFinalizar={onTurnoCerrado} 
+        />
       )}
+
+      <header className="corte-header">
+        <h2>Auditoría de Caja</h2>
+        <p>Arqueo y cierre de turno actual</p>
+      </header>
+
+      <div className="corte-panel">
+        {error ? (
+          <div className="corte-error">
+            <p>{error}</p>
+            <button className="btn-volver" onClick={onVolver}>Volver al Mostrador</button>
+          </div>
+        ) : (
+          <>
+            <div className="corte-grid">
+              <div className="corte-card">
+                <span>Fondo Fijo Inicial</span>
+                <strong>${datosTurno.fondoInicial.toFixed(2)}</strong>
+              </div>
+              <div className="corte-card">
+                <span>Ingreso por Ventas</span>
+                <strong>${datosTurno.totalVentas.toFixed(2)}</strong>
+              </div>
+              <div className="corte-card" style={{ gridColumn: "span 2" }}>
+                <span>Tickets Emitidos (Folios procesados)</span>
+                <strong>{datosTurno.pedidosRealizados}</strong>
+              </div>
+            </div>
+
+            <div className="tarjeta-total">
+              <span>EFECTIVO ESPERADO EN CAJÓN</span>
+              <strong>${datosTurno.esperadoCaja.toFixed(2)}</strong>
+            </div>
+
+            <div className="corte-acciones">
+              <button className="btn-volver" onClick={onVolver} disabled={mostrarTicketZ}>
+                Cancelar y Volver
+              </button>
+              <button className="btn-cerrar" onClick={procesarCierre} disabled={mostrarTicketZ}>
+                Confirmar Cierre
+              </button>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

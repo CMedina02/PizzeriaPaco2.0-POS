@@ -1,0 +1,132 @@
+.corte-layout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 20px;
+  background-color: #f4f6f9;
+  min-height: 100vh;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.corte-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.corte-header h2 {
+  color: #2c3e50;
+  font-size: 28px;
+  margin: 0 0 10px 0;
+}
+
+.corte-header p {
+  color: #7f8c8d;
+  font-size: 16px;
+  margin: 0;
+}
+
+.corte-panel {
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 500px;
+  padding: 30px;
+}
+
+.corte-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.corte-card {
+  background-color: #f8f9fa;
+  padding: 15px;
+  border-radius: 8px;
+  border-left: 4px solid #3498db;
+}
+
+.corte-card span {
+  display: block;
+  font-size: 13px;
+  color: #7f8c8d;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 5px;
+}
+
+.corte-card strong {
+  display: block;
+  font-size: 20px;
+  color: #2c3e50;
+}
+
+.tarjeta-total {
+  background-color: #ebf5fb;
+  border: 2px dashed #3498db;
+  border-radius: 8px;
+  padding: 25px;
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.tarjeta-total span {
+  display: block;
+  font-size: 16px;
+  color: #2980b9;
+  margin-bottom: 10px;
+  font-weight: bold;
+}
+
+.tarjeta-total strong {
+  display: block;
+  font-size: 36px;
+  color: #2c3e50;
+}
+
+.corte-acciones {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+}
+
+.btn-volver, .btn-cerrar {
+  flex: 1;
+  padding: 14px;
+  font-size: 16px;
+  font-weight: bold;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-volver {
+  background-color: #ecf0f1;
+  color: #34495e;
+}
+
+.btn-volver:hover {
+  background-color: #bdc3c7;
+}
+
+.btn-cerrar {
+  background-color: #e74c3c;
+  color: white;
+}
+
+.btn-cerrar:hover {
+  background-color: #c0392b;
+}
+
+.corte-error {
+  background-color: #fde8e8;
+  color: #c0392b;
+  padding: 20px;
+  border-radius: 8px;
+  text-align: center;
+  border: 1px solid #fadbd8;
+  margin-bottom: 20px;
+}

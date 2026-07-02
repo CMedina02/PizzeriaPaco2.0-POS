@@ -2,6 +2,7 @@ import { useState } from "react";
 import "./AdminPanel.css";
 import ProductosCRUD from "../components/ProductosCRUD";
 import CategoriasCRUD from "../components/CategoriasCRUD";
+import HistorialVentas from "../components/HistorialVentas";
 
 function AdminPanel({ onCerrarSesion }) {
   const [moduloActivo, setModuloActivo] = useState("productos");
@@ -62,8 +63,8 @@ function AdminPanel({ onCerrarSesion }) {
 
         {moduloActivo === "ventas" && (
           <div>
-            <h1>Auditoría de Tickets</h1>
-            <p>Módulo en construcción...</p>
+            <h1>Historial de Operaciones</h1>
+            <HistorialVentas />
           </div>
         )}
       </main>

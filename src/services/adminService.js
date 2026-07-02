@@ -1,58 +1,51 @@
 import { getDbConnection } from "./dbService";
 
-/**
- * Obtiene los totales de ventas y el fondo inicial de la sesión actual.
- * @returns {Promise<Object>} Objeto con los datos consolidados del turno.
- */
+// =========================================================
+// MÓDULO DE ARQUEO Y CORTE DE CAJA (FASE 2)
+// =========================================================
+
 export async function obtenerDatosCorte() {
   const db = await getDbConnection();
-
+  
   const sesion = await db.select("SELECT * FROM sesiones_caja WHERE estado = 'Abierta' LIMIT 1");
   if (sesion.length === 0) {
     throw new Error("NO_HAY_SESION");
   }
-
-  const idSesionActual = sesion[0].id;
-  const fondo = parseFloat(sesion[0].fondo_inicial);
-
+  
+  const idSesion = sesion[0].id;
+  const fondoInicial = parseFloat(sesion[0].fondo_inicial);
+  
   const ventas = await db.select(
-    "SELECT COUNT(id) as cantidad_pedidos, SUM(total) as total_ingresos FROM pedidos WHERE sesion_caja_id = $1",
-    [idSesionActual]
+    "SELECT SUM(total) as totalVentas, COUNT(id) as pedidosRealizados FROM pedidos WHERE sesion_caja_id = $1 AND estado_pedido = 'Pagado'", 
+    [idSesion]
   );
-
-  const totalIngresos = ventas[0].total_ingresos ? parseFloat(ventas[0].total_ingresos) : 0;
-  const pedidos = ventas[0].cantidad_pedidos || 0;
-
-  return {
-    fondoInicial: fondo,
-    totalVentas: totalIngresos,
-    pedidosRealizados: pedidos,
-    esperadoCaja: fondo + totalIngresos,
-    idSesion: idSesionActual
+  
+  const totalVentas = parseFloat(ventas[0].totalVentas || 0);
+  const pedidosRealizados = parseInt(ventas[0].pedidosRealizados || 0);
+  const esperadoCaja = fondoInicial + totalVentas;
+  
+  return { 
+    fondoInicial, 
+    totalVentas, 
+    pedidosRealizados, 
+    esperadoCaja, 
+    idSesion 
   };
 }
 
-/**
- * Marca la sesión activa como 'Cerrada' y registra la fecha y hora.
- * @param {number} idSesion - ID de la sesión a cerrar.
- */
 export async function ejecutarCierreTurno(idSesion) {
   const db = await getDbConnection();
   const fechaCierre = new Date().toISOString();
-
   await db.execute(
-    "UPDATE sesiones_caja SET estado = 'Cerrada', fecha_hora_cierre = $1 WHERE id = $2",
+    "UPDATE sesiones_caja SET estado = 'Cerrada', fecha_hora_cierre = $1 WHERE id = $2", 
     [fechaCierre, idSesion]
   );
 }
 
 // =========================================================
-// MÓDULO CRUD DE PRODUCTOS
+// MÓDULO CRUD DE PRODUCTOS (FASE 3)
 // =========================================================
 
-/**
- * Obtiene la lista completa de productos incluyendo el nombre de su categoría.
- */
 export async function obtenerTodosLosProductos() {
   const db = await getDbConnection();
   return await db.select(`
@@ -63,9 +56,6 @@ export async function obtenerTodosLosProductos() {
   `);
 }
 
-/**
- * Crea un nuevo producto en el catálogo.
- */
 export async function crearProducto(nombre, precio_base, categoria_id) {
   const db = await getDbConnection();
   await db.execute(
@@ -74,9 +64,6 @@ export async function crearProducto(nombre, precio_base, categoria_id) {
   );
 }
 
-/**
- * Actualiza los datos de un producto existente.
- */
 export async function actualizarProducto(id, nombre, precio_base, categoria_id) {
   const db = await getDbConnection();
   await db.execute(
@@ -85,45 +72,30 @@ export async function actualizarProducto(id, nombre, precio_base, categoria_id) 
   );
 }
 
-/**
- * Elimina permanentemente un producto de la base de datos.
- */
 export async function eliminarProducto(id) {
   const db = await getDbConnection();
   await db.execute("DELETE FROM productos WHERE id = $1", [id]);
 }
 
 // =========================================================
-// MÓDULO CRUD DE CATEGORÍAS
+// MÓDULO CRUD DE CATEGORÍAS (FASE 3)
 // =========================================================
 
-/**
- * Obtiene todas las categorías del sistema.
- */
 export async function obtenerTodasLasCategorias() {
   const db = await getDbConnection();
   return await db.select("SELECT * FROM categorias ORDER BY id");
 }
 
-/**
- * Crea una nueva categoría.
- */
 export async function crearCategoria(nombre) {
   const db = await getDbConnection();
   await db.execute("INSERT INTO categorias (nombre) VALUES ($1)", [nombre]);
 }
 
-/**
- * Actualiza el nombre de una categoría existente.
- */
 export async function actualizarCategoria(id, nombre) {
   const db = await getDbConnection();
   await db.execute("UPDATE categorias SET nombre = $1 WHERE id = $2", [nombre, id]);
 }
 
-/**
- * Elimina una categoría, validando previamente que esté vacía.
- */
 export async function eliminarCategoria(id) {
   const db = await getDbConnection();
   
@@ -134,4 +106,19 @@ export async function eliminarCategoria(id) {
   }
   
   await db.execute("DELETE FROM categorias WHERE id = $1", [id]);
+}
+
+// =========================================================
+// MÓDULO DE AUDITORÍA Y HISTORIAL (FASE 3)
+// =========================================================
+
+export async function obtenerHistorialVentas() {
+  const db = await getDbConnection();
+  return await db.select(`
+    SELECT id as folio, fecha_hora, total, estado_pedido as estado
+    FROM pedidos
+    WHERE estado_pedido = 'Pagado'
+    ORDER BY fecha_hora DESC
+    LIMIT 100
+  `);
 }

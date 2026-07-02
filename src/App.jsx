@@ -2,16 +2,24 @@ import { useState } from "react";
 import Login from "./views/Login";
 import Mostrador from "./views/Mostrador";
 import CorteCaja from "./views/CorteCaja";
+import AdminPanel from "./views/AdminPanel";
 import "./App.css";
 
 function App() {
-  // Ahora manejamos 3 estados posibles de pantalla
   const [pantallaActual, setPantallaActual] = useState('login');
+
+  function manejarLoginExitoso(rol) {
+    if (rol === 'admin') {
+      setPantallaActual('admin');
+    } else {
+      setPantallaActual('mostrador');
+    }
+  }
 
   return (
     <>
       {pantallaActual === 'login' && (
-        <Login onLoginSuccess={() => setPantallaActual('mostrador')} />
+        <Login onLoginSuccess={manejarLoginExitoso} />
       )}
       
       {pantallaActual === 'mostrador' && (
@@ -23,6 +31,10 @@ function App() {
           onVolver={() => setPantallaActual('mostrador')} 
           onTurnoCerrado={() => setPantallaActual('login')} 
         />
+      )}
+
+      {pantallaActual === 'admin' && (
+        <AdminPanel onCerrarSesion={() => setPantallaActual('login')} />
       )}
     </>
   );

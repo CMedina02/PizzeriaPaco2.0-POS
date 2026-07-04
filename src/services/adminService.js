@@ -6,30 +6,30 @@ import { getDbConnection } from "./dbService";
 
 export async function obtenerDatosCorte() {
   const db = await getDbConnection();
-  
+
   const sesion = await db.select("SELECT * FROM sesiones_caja WHERE estado = 'Abierta' LIMIT 1");
   if (sesion.length === 0) {
     throw new Error("NO_HAY_SESION");
   }
-  
+
   const idSesion = sesion[0].id;
   const fondoInicial = parseFloat(sesion[0].fondo_inicial);
-  
+
   const ventas = await db.select(
-    "SELECT SUM(total) as totalVentas, COUNT(id) as pedidosRealizados FROM pedidos WHERE sesion_caja_id = $1 AND estado_pedido = 'Pagado'", 
+    "SELECT SUM(total) as totalVentas, COUNT(id) as pedidosRealizados FROM pedidos WHERE sesion_caja_id = $1 AND estado_pedido = 'Pagado'",
     [idSesion]
   );
-  
+
   const totalVentas = parseFloat(ventas[0].totalVentas || 0);
   const pedidosRealizados = parseInt(ventas[0].pedidosRealizados || 0);
   const esperadoCaja = fondoInicial + totalVentas;
-  
-  return { 
-    fondoInicial, 
-    totalVentas, 
-    pedidosRealizados, 
-    esperadoCaja, 
-    idSesion 
+
+  return {
+    fondoInicial,
+    totalVentas,
+    pedidosRealizados,
+    esperadoCaja,
+    idSesion
   };
 }
 
@@ -37,7 +37,7 @@ export async function ejecutarCierreTurno(idSesion) {
   const db = await getDbConnection();
   const fechaCierre = new Date().toISOString();
   await db.execute(
-    "UPDATE sesiones_caja SET estado = 'Cerrada', fecha_hora_cierre = $1 WHERE id = $2", 
+    "UPDATE sesiones_caja SET estado = 'Cerrada', fecha_hora_cierre = $1 WHERE id = $2",
     [fechaCierre, idSesion]
   );
 }
@@ -98,13 +98,13 @@ export async function actualizarCategoria(id, nombre) {
 
 export async function eliminarCategoria(id) {
   const db = await getDbConnection();
-  
+
   // Blindaje relacional: Evitar borrar categorías en uso
   const productos = await db.select("SELECT COUNT(*) as total FROM productos WHERE categoria_id = $1", [id]);
   if (productos[0].total > 0) {
     throw new Error("TIENE_PRODUCTOS");
   }
-  
+
   await db.execute("DELETE FROM categorias WHERE id = $1", [id]);
 }
 
@@ -121,4 +121,59 @@ export async function obtenerHistorialVentas() {
     ORDER BY fecha_hora DESC
     LIMIT 100
   `);
+}
+// =========================================================
+// MÓDULO DE INVENTARIO FÍSICO (INSUMOS)
+// =========================================================
+
+export async function obtenerInsumos() {
+  const db = await getDbConnection();
+  return await db.select("SELECT * FROM insumos ORDER BY id");
+}
+
+export async function agregarStockInsumo(id, cantidadAgregar) {
+  const db = await getDbConnection();
+  await db.execute("UPDATE insumos SET stock = stock + $1 WHERE id = $2", [parseInt(cantidadAgregar), id]);
+}
+// =========================================================
+// MÓDULO DE RECURSOS HUMANOS (EMPLEADOS)
+// =========================================================
+
+export async function obtenerEmpleados() {
+  const db = await getDbConnection();
+  // Solo traemos a los cajeros para que el Admin no se borre a sí mismo por accidente
+  return await db.select("SELECT id, nombre, pin_acceso FROM usuarios WHERE rol = 'cajero' ORDER BY id");
+}
+
+export async function crearEmpleado(nombre, pin) {
+  const db = await getDbConnection();
+
+  // Validamos que el PIN no exista ya en el sistema
+  const existe = await db.select("SELECT id FROM usuarios WHERE pin_acceso = $1", [pin]);
+  if (existe.length > 0) {
+    throw new Error("PIN_DUPLICADO");
+  }
+
+  await db.execute(
+    "INSERT INTO usuarios (nombre, pin_acceso, rol) VALUES ($1, $2, 'cajero')",
+    [nombre, pin]
+  );
+}
+
+export async function eliminarEmpleado(id) {
+  const db = await getDbConnection();
+  await db.execute("DELETE FROM usuarios WHERE id = $1", [id]);
+}
+
+export async function actualizarPinAdmin(nuevoPin) {
+  const db = await getDbConnection();
+
+  // Validamos que el PIN no esté en uso por nadie más
+  const existe = await db.select("SELECT id FROM usuarios WHERE pin_acceso = $1", [nuevoPin]);
+  if (existe.length > 0) {
+    throw new Error("PIN_DUPLICADO");
+  }
+
+  // Actualizamos específicamente la cuenta del administrador
+  await db.execute("UPDATE usuarios SET pin_acceso = $1 WHERE rol = 'admin'", [nuevoPin]);
 }

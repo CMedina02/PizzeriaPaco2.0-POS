@@ -20,6 +20,38 @@
   font-size: 1.8rem;
 }
 
+/* Acciones del Header (Botones de ir a corte/volver admin) */
+.header-acciones {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.btn-accion-header {
+  cursor: pointer;
+  padding: 8px 16px;
+  background-color: #e9ecef;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-weight: bold;
+  color: #495057;
+  transition: all 0.2s ease;
+}
+
+.btn-accion-header:hover {
+  background-color: #dee2e6;
+}
+
+.btn-accion-header.volver-admin {
+  background-color: #2c3e50;
+  color: white;
+  border: none;
+}
+
+.btn-accion-header.volver-admin:hover {
+  background-color: #1a252f;
+}
+
 .categorias-bar {
   display: flex;
   gap: 12px;
@@ -106,8 +138,6 @@
   flex: 1;
   overflow-y: auto;
   display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .vacio-txt {
@@ -147,8 +177,8 @@
   background-color: #bdc3c7;
   cursor: not-allowed;
 }
-/* Nuevas clases para limpiar los estilos en línea del ticket */
 
+/* Nuevas clases para la limpieza de la comanda */
 .lista-items.vacia {
   align-items: center;
   justify-content: center;
@@ -169,7 +199,30 @@
 .comanda-item {
   display: flex;
   justify-content: space-between;
+  align-items: center; /* Alineación vertical perfecta */
   padding: 12px 0;
   border-bottom: 1px solid #f0f0f0;
   color: #2c3e50;
+}
+
+.item-precio-acciones {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-eliminar-item {
+  background-color: #e74c3c;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 12px;
+  transition: background-color 0.2s;
+}
+
+.btn-eliminar-item:hover {
+  background-color: #c0392b;
 }

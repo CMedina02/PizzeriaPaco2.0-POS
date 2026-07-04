@@ -27,7 +27,7 @@ async function registrarObtenerSabor(db, productoId) {
     "SELECT nombre FROM productos WHERE id = $1",
     [productoId]
   );
-  
+
   if (producto.length === 0) return null;
 
   const nuevoSabor = await db.select(
@@ -40,10 +40,7 @@ async function registrarObtenerSabor(db, productoId) {
 
 /**
  * Procesa la orden de cobro utilizando transacciones atómicas.
- * Garantiza que no existan cobros parciales en caso de fallos del sistema.
- * @param {Array} comanda - Arreglo de productos a cobrar.
- * @param {number} totalComanda - Suma total del importe.
- * @returns {Promise<number>} ID del pedido (Folio).
+ * Descuenta inventario físico (Masas y Cajas) por cada pizza vendida.
  */
 export async function procesarCobro(comanda, totalComanda) {
   const db = await getDbConnection();
@@ -64,11 +61,19 @@ export async function procesarCobro(comanda, totalComanda) {
       "INSERT INTO pedidos (sesion_caja_id, fecha_hora, total, metodo_pago, estado_pedido, es_para_entrega) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
       [sesionId, new Date().toISOString(), totalComanda, 'Efectivo', 'Pagado', 0]
     );
-    
+
     const pedidoId = resultadoPedido[0].id;
+
+    // NUEVO: Variable para contar cuántas pizzas hay en la orden
+    let cantidadPizzas = 0;
 
     // Inserción de los detalles resolviendo las llaves foráneas
     for (const item of comanda) {
+      // Si el producto pertenece a la categoría 1 (Pizzas), sumamos al contador
+      if (item.categoria_id === 1) {
+        cantidadPizzas++;
+      }
+
       let fkSabor1 = null;
       let fkSabor2 = null;
 
@@ -101,17 +106,29 @@ export async function procesarCobro(comanda, totalComanda) {
       await db.execute(query, values);
     }
 
+    // NUEVO: Descontamos del inventario físico (Masas y Cajas) de manera atómica
+    if (cantidadPizzas > 0) {
+      await db.execute(
+        "UPDATE insumos SET stock = stock - $1 WHERE nombre = 'Masa de Pizza'",
+        [cantidadPizzas]
+      );
+      await db.execute(
+        "UPDATE insumos SET stock = stock - $1 WHERE nombre = 'Caja de Pizza'",
+        [cantidadPizzas]
+      );
+    }
+
     // 3. CONFIRMACIÓN: Si el flujo llega hasta aquí sin errores, guardamos los datos físicamente.
     await db.execute("COMMIT");
-    
+
     return pedidoId;
 
   } catch (error) {
     // 4. REVERSIÓN: Si cualquier instrucción falla, abortamos y deshacemos los cambios parciales.
     await db.execute("ROLLBACK");
     console.error("Transacción de cobro abortada. Cambios revertidos para proteger la integridad:", error);
-    
+
     // Relanzamos el error para que la interfaz (Mostrador.jsx) muestre la alerta al usuario.
-    throw error; 
+    throw error;
   }
 }

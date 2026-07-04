@@ -4,7 +4,7 @@ import ModalMitad from "../components/ModalMitad";
 import TicketModal from "../components/TicketModal";
 import "./Mostrador.css";
 
-function Mostrador({ onIrACorte }) {
+function Mostrador({ onIrACorte, rolUsuario, onVolverAdmin }) {
   const [categorias, setCategorias] = useState([]);
   const [productos, setProductos] = useState([]);
   const [categoriaActiva, setCategoriaActiva] = useState(null);
@@ -43,6 +43,11 @@ function Mostrador({ onIrACorte }) {
     setPizzaEnEdicion(null);
   }
 
+  function eliminarDeComanda(indiceAEliminar) {
+    const nuevaComanda = comanda.filter((_, index) => index !== indiceAEliminar);
+    setComanda(nuevaComanda);
+  }
+
   const productosFiltrados = productos.filter(p => p.categoria_id === categoriaActiva);
   const totalComanda = comanda.reduce((suma, item) => suma + item.precio_base, 0);
 
@@ -50,7 +55,6 @@ function Mostrador({ onIrACorte }) {
     try {
       const pedidoId = await procesarCobro(comanda, totalComanda);
       
-      // Despliegue del Ticket Digital en lugar de la alerta
       setTicketGenerado({
         folio: pedidoId,
         comanda: [...comanda],
@@ -92,9 +96,17 @@ function Mostrador({ onIrACorte }) {
         <header className="menu-header">
           <h2>Menú Digital</h2>
           
-          <button onClick={onIrACorte} style={{ cursor: "pointer", padding: "8px 16px", marginBottom: "10px" }}>
-            Ir a Corte de Caja
-          </button>
+          <div className="header-acciones">
+            <button onClick={onIrACorte} className="btn-accion-header">
+              Ir a Corte de Caja
+            </button>
+            
+            {rolUsuario === 'admin' && (
+              <button onClick={onVolverAdmin} className="btn-accion-header volver-admin">
+                Volver a Panel Gerencial
+              </button>
+            )}
+          </div>
 
           <div className="categorias-bar">
             {categorias.map(cat => (
@@ -134,7 +146,16 @@ function Mostrador({ onIrACorte }) {
               {comanda.map((item, index) => (
                 <li key={index} className="comanda-item">
                   <span>{item.nombre}</span>
-                  <strong>${item.precio_base.toFixed(2)}</strong>
+                  <div className="item-precio-acciones">
+                    <strong>${item.precio_base.toFixed(2)}</strong>
+                    <button 
+                      onClick={() => eliminarDeComanda(index)}
+                      className="btn-eliminar-item"
+                      title="Quitar de la orden"
+                    >
+                      X
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>

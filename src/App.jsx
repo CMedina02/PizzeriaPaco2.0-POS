@@ -7,12 +7,11 @@ import "./App.css";
 
 function App() {
   const [pantallaActual, setPantallaActual] = useState('login');
-  // NUEVO: Estado para recordar quién está operando el sistema
-  const [rolUsuario, setRolUsuario] = useState(null); 
+  const [usuarioActual, setUsuarioActual] = useState(null);
 
-  function manejarLoginExitoso(rol) {
-    setRolUsuario(rol);
-    if (rol === 'admin') {
+  function manejarLoginExitoso(usuario) {
+    setUsuarioActual(usuario);
+    if (usuario.rol === 'admin') {
       setPantallaActual('admin');
     } else {
       setPantallaActual('mostrador');
@@ -20,7 +19,7 @@ function App() {
   }
 
   function manejarCierreSesion() {
-    setRolUsuario(null);
+    setUsuarioActual(null);
     setPantallaActual('login');
   }
 
@@ -33,7 +32,7 @@ function App() {
       {pantallaActual === 'mostrador' && (
         <Mostrador 
           onIrACorte={() => setPantallaActual('corte')} 
-          rolUsuario={rolUsuario} 
+          rolUsuario={usuarioActual?.rol}
           onVolverAdmin={() => setPantallaActual('admin')} 
         />
       )}
@@ -49,6 +48,7 @@ function App() {
         <AdminPanel 
           onCerrarSesion={manejarCierreSesion} 
           onIrACaja={() => setPantallaActual('mostrador')} 
+          usuarioId={usuarioActual?.id}
         />
       )}
     </>

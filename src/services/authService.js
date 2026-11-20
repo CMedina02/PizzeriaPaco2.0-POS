@@ -1,36 +1,21 @@
-import { getDbConnection } from "./dbService";
+import { getDbConnection } from "./dbService.js";
+import {
+  esPinPredeterminado,
+  esPinValido,
+  hashearPin,
+  requiereMigracionPin,
+  verificarPin,
+} from "./pinSecurity.js";
 
 /**
- * Verifica, corrige y garantiza la existencia de las cuentas base y las tablas de inventario físico.
+ * Prepara las tablas auxiliares sin crear, modificar ni eliminar usuarios.
+ * @returns {Promise<{requiereConfiguracionInicial: boolean, sinAdministrador: boolean}>}
+ * Estado de usuarios sin modificar las cuentas existentes.
  */
-export async function asegurarUsuarioDefault() {
+export async function asegurarUsuarioDefault(database = null) {
   try {
-    const db = await getDbConnection();
+    const db = database ?? await getDbConnection();
 
-    // 1. PARCHE DE LIMPIEZA: Eliminación de "Administradores Zombie"
-    // Buscamos todos los administradores, ordenados del más nuevo al más viejo
-    const admins = await db.select("SELECT id FROM usuarios WHERE rol = 'admin' ORDER BY id DESC");
-
-    // Si hay más de un administrador (por el bug anterior), dejamos solo el último y borramos los clones
-    if (admins.length > 1) {
-      for (let i = 1; i < admins.length; i++) {
-        await db.execute("DELETE FROM usuarios WHERE id = $1", [admins[i].id]);
-      }
-    }
-
-    // 2. Validación de seguridad correcta (por ROL, no por PIN)
-    const cajeroCount = await db.select("SELECT COUNT(*) as total FROM usuarios WHERE rol = 'cajero'");
-    if (cajeroCount[0].total === 0) {
-      await db.execute("INSERT INTO usuarios (nombre, pin_acceso, rol) VALUES ('Cajero Turno 1', '1234', 'cajero')");
-    }
-
-    const adminCount = await db.select("SELECT COUNT(*) as total FROM usuarios WHERE rol = 'admin'");
-    if (adminCount[0].total === 0) {
-      // Solo si de verdad no hay NINGÚN admin, creamos el de fábrica
-      await db.execute("INSERT INTO usuarios (nombre, pin_acceso, rol) VALUES ('Administrador General', '9999', 'admin')");
-    }
-
-    // 3. Creación de tabla de insumos físicos (Masas y Contenedores)
     await db.execute(`
       CREATE TABLE IF NOT EXISTS insumos (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -39,9 +24,15 @@ export async function asegurarUsuarioDefault() {
       )
     `);
 
-    // Insertamos los insumos base ignorando si ya existen
     await db.execute("INSERT OR IGNORE INTO insumos (nombre, stock) VALUES ('Masa de Pizza', 0)");
     await db.execute("INSERT OR IGNORE INTO insumos (nombre, stock) VALUES ('Caja de Pizza', 0)");
+
+    const usuarios = await db.select("SELECT COUNT(*) as total FROM usuarios");
+    const administradores = await db.select("SELECT COUNT(*) as total FROM usuarios WHERE rol = 'admin'");
+    return {
+      requiereConfiguracionInicial: usuarios[0].total === 0,
+      sinAdministrador: usuarios[0].total > 0 && administradores[0].total === 0,
+    };
 
   } catch (error) {
     console.error("Error al preparar base de datos del sistema:", error);
@@ -53,14 +44,29 @@ export async function asegurarUsuarioDefault() {
  * Valida el PIN y gestiona la concurrencia de sesiones.
  * @returns {Promise<Object>} Objeto indicando operacion, fondo y el ROL del usuario.
  */
-export async function procesarAperturaCaja(pin, fondo) {
-  const db = await getDbConnection();
+export async function procesarAperturaCaja(pin, fondo, database = null) {
+  if (!esPinValido(pin)) throw new Error("PIN_INCORRECTO");
+  const db = database ?? await getDbConnection();
+  const usuarios = await db.select("SELECT id, nombre, pin_acceso, rol FROM usuarios ORDER BY id");
+  let usuario = null;
+  for (const candidato of usuarios) {
+    if (await verificarPin(pin, candidato.pin_acceso)) {
+      usuario = candidato;
+      break;
+    }
+  }
 
-  const usuarios = await db.select("SELECT * FROM usuarios WHERE pin_acceso = $1", [pin]);
-  if (usuarios.length === 0) {
+  if (!usuario) {
     throw new Error("PIN_INCORRECTO");
   }
-  const usuario = usuarios[0];
+
+  if (requiereMigracionPin(usuario.pin_acceso)) {
+    const hash = await hashearPin(pin);
+    await db.execute(
+      "UPDATE usuarios SET pin_acceso = $1 WHERE id = $2 AND pin_acceso = $3",
+      [hash, usuario.id, usuario.pin_acceso],
+    );
+  }
 
   await db.execute("BEGIN TRANSACTION");
 
@@ -77,7 +83,9 @@ export async function procesarAperturaCaja(pin, fondo) {
       return {
         operacion: "REANUDACION",
         fondoReal: parseFloat(sesionesAbiertas[0].fondo_inicial),
-        rol: usuario.rol
+        rol: usuario.rol,
+        usuarioId: usuario.id,
+        pinPredeterminado: esPinPredeterminado(pin),
       };
     }
 
@@ -91,9 +99,35 @@ export async function procesarAperturaCaja(pin, fondo) {
     return {
       operacion: "NUEVA_APERTURA",
       fondoReal: parseFloat(fondo),
-      rol: usuario.rol
+      rol: usuario.rol,
+      usuarioId: usuario.id,
+      pinPredeterminado: esPinPredeterminado(pin),
     };
 
+  } catch (error) {
+    await db.execute("ROLLBACK");
+    throw error;
+  }
+}
+
+/** Crea la cuenta inicial solo después de que el responsable elija nombre y PIN. */
+export async function crearAdministradorInicial(nombre, pin, database = null) {
+  const nombreLimpio = typeof nombre === "string" ? nombre.trim() : "";
+  if (!nombreLimpio || nombreLimpio.length > 50) throw new Error("NOMBRE_INVALIDO");
+  if (!esPinValido(pin)) throw new Error("PIN_INVALIDO");
+  if (esPinPredeterminado(pin)) throw new Error("PIN_PREDETERMINADO");
+
+  const db = database ?? await getDbConnection();
+  await db.execute("BEGIN TRANSACTION");
+  try {
+    const existentes = await db.select("SELECT COUNT(*) as total FROM usuarios");
+    if (existentes[0].total !== 0) throw new Error("USUARIOS_EXISTENTES");
+    const hash = await hashearPin(pin);
+    await db.execute(
+      "INSERT INTO usuarios (nombre, pin_acceso, rol) VALUES ($1, $2, 'admin')",
+      [nombreLimpio, hash],
+    );
+    await db.execute("COMMIT");
   } catch (error) {
     await db.execute("ROLLBACK");
     throw error;

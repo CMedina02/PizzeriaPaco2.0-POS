@@ -1,19 +1,29 @@
 import { useState, useEffect } from "react";
-import { procesarAperturaCaja, asegurarUsuarioDefault } from "../services/authService";
+import { procesarAperturaCaja, asegurarUsuarioDefault, crearAdministradorInicial } from "../services/authService";
 import "./Login.css";
 
 function Login({ onLoginSuccess }) {
   const [pin, setPin] = useState("");
   const [fondo, setFondo] = useState("500.00");
   const [error, setError] = useState("");
+  const [preparado, setPreparado] = useState(false);
+  const [requiereAdminInicial, setRequiereAdminInicial] = useState(false);
+  const [sinAdministrador, setSinAdministrador] = useState(false);
+  const [nombreAdmin, setNombreAdmin] = useState("");
+  const [pinAdmin, setPinAdmin] = useState("");
 
  // Este disparador corrige la base de datos apenas abre la pantalla de Login
   useEffect(() => {
     async function prepararSistema() {
       try {
-        await asegurarUsuarioDefault();
+        const estadoUsuarios = await asegurarUsuarioDefault();
+        setRequiereAdminInicial(estadoUsuarios.requiereConfiguracionInicial);
+        setSinAdministrador(estadoUsuarios.sinAdministrador);
       } catch (error) {
         console.error("Fallo al sincronizar base de datos", error);
+        setError("No se pudo preparar la base de datos.");
+      } finally {
+        setPreparado(true);
       }
     }
     prepararSistema();
@@ -22,6 +32,31 @@ function Login({ onLoginSuccess }) {
   function agregarNumero(num) {
     if (pin.length < 4) setPin(pin + num);
     setError("");
+  }
+
+  async function configurarAdministrador(e) {
+    e.preventDefault();
+    if (!nombreAdmin.trim() || pinAdmin.length !== 4) {
+      setError("Ingresa un nombre y un PIN de cuatro dígitos.");
+      return;
+    }
+    try {
+      await crearAdministradorInicial(nombreAdmin, pinAdmin);
+      setRequiereAdminInicial(false);
+      setPin(pinAdmin);
+      setNombreAdmin("");
+      setPinAdmin("");
+      setError("");
+      alert("Cuenta administradora configurada. Presiona OK para iniciar el turno.");
+    } catch (err) {
+      if (err.message === "PIN_PREDETERMINADO") {
+        setError("Elige un PIN distinto de 1234 y 9999.");
+      } else if (err.message === "USUARIOS_EXISTENTES") {
+        setError("Ya hay usuarios configurados. Actualiza la pantalla e inicia sesión.");
+      } else {
+        setError("No se pudo crear la cuenta administradora.");
+      }
+    }
   }
 
   function borrarTodo() {
@@ -46,9 +81,15 @@ function Login({ onLoginSuccess }) {
       if (resultado.operacion === "REANUDACION") {
         alert(`Turno Previo Recuperado.\nExiste una sesión abierta en el sistema. El nuevo monto fue descartado para operar con el fondo original de $${resultado.fondoReal.toFixed(2)}.`);
       }
+      if (resultado.pinPredeterminado) {
+        const aviso = resultado.rol === "admin"
+          ? "Este usuario conserva un PIN predeterminado conocido. Cámbielo desde su panel gerencial."
+          : "Este usuario conserva un PIN predeterminado conocido. Solicita al administrador que lo cambie.";
+        alert(aviso);
+      }
 
       // Inyectamos el rol en la función de éxito
-      onLoginSuccess(resultado.rol);  
+      onLoginSuccess({ id: resultado.usuarioId, rol: resultado.rol });
     } catch (err) {
       if (err.message === "PIN_INCORRECTO") {
         setError("PIN incorrecto. Intente de nuevo.");
@@ -91,8 +132,45 @@ function Login({ onLoginSuccess }) {
   return (
     <div className="login-layout">
       <div className="login-card">
+        {!preparado ? (
+          <p className="login-subtitle">Preparando la base de datos...</p>
+        ) : requiereAdminInicial ? (
+          <>
+            <h2 className="login-title">Configuración inicial</h2>
+            <p className="login-subtitle">Crea la primera cuenta administradora. Elige un PIN propio de cuatro dígitos.</p>
+            {error && <p className="error-msg">{error}</p>}
+            <form onSubmit={configurarAdministrador}>
+              <div className="fondo-container">
+                <label className="fondo-label">Nombre</label>
+                <input
+                  className="input-fondo"
+                  value={nombreAdmin}
+                  onChange={(e) => setNombreAdmin(e.target.value.slice(0, 50))}
+                  maxLength={50}
+                  required
+                />
+                <label className="fondo-label">PIN de cuatro dígitos (no 1234 ni 9999)</label>
+                <input
+                  className="input-fondo"
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="new-password"
+                  value={pinAdmin}
+                  onChange={(e) => setPinAdmin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                  maxLength={4}
+                  required
+                />
+              </div>
+              <button className="btn-num btn-ingresar" type="submit">Crear administrador</button>
+            </form>
+          </>
+        ) : (
+        <>
         <h2 className="login-title">Apertura de Caja</h2>
         <p className="login-subtitle">Ingresa tu PIN para iniciar turno</p>
+        {sinAdministrador && (
+          <p className="error-msg">No hay administrador configurado. El acceso de cajero sigue disponible; la recuperación gerencial requiere al responsable de la base.</p>
+        )}
         
         <div className="pin-display">
           {pin.padEnd(4, '•').split('').map((char, i) => (
@@ -122,6 +200,8 @@ function Login({ onLoginSuccess }) {
           <button className="btn-num" onClick={() => agregarNumero("0")}>0</button>
           <button className="btn-num btn-ingresar" onClick={iniciarTurno}>OK</button>
         </div>
+        </>
+        )}
       </div>
     </div>
   );

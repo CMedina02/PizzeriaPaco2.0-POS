@@ -8,7 +8,7 @@ import GestorEmpleados from "../components/GestorEmpleados";
 // NUEVO: Importamos la función para cambiar el PIN
 import { actualizarPinAdmin } from "../services/adminService";
 
-function AdminPanel({ onCerrarSesion, onIrACaja }) {
+function AdminPanel({ onCerrarSesion, onIrACaja, usuarioId }) {
   const [moduloActivo, setModuloActivo] = useState("productos");
 
   // Lógica de seguridad para el gerente
@@ -18,19 +18,19 @@ function AdminPanel({ onCerrarSesion, onIrACaja }) {
     if (!nuevoPin) return; // Si cancela la ventana
 
     // Limpiamos la entrada para asegurar que solo sean 4 números
-    const pinLimpio = nuevoPin.replace(/\D/g, '').slice(0, 4);
-
-    if (pinLimpio.length !== 4) {
+    if (!/^\d{4}$/.test(nuevoPin)) {
       alert("Operación cancelada: El PIN debe contener exactamente 4 números.");
       return;
     }
 
     try {
-      await actualizarPinAdmin(pinLimpio);
-      alert(`¡Éxito! Su PIN maestro ha sido actualizado a: ${pinLimpio}\nUse este número en su próximo inicio de sesión.`);
+      await actualizarPinAdmin(usuarioId, nuevoPin);
+      alert("PIN actualizado. Use el nuevo PIN en su próximo inicio de sesión.");
     } catch (error) {
       if (error.message === "PIN_DUPLICADO") {
-        alert("Ese PIN ya está en uso por un empleado. Por su seguridad, elija uno distinto.");
+        alert("Ese PIN ya está en uso por otra cuenta. Elija uno distinto.");
+      } else if (error.message === "PIN_PREDETERMINADO") {
+        alert("Elija un PIN distinto de 1234 y 9999.");
       } else {
         alert("Ocurrió un error al intentar cambiar la contraseña.");
       }

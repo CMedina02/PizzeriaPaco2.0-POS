@@ -1,4 +1,5 @@
-import { getDbConnection } from "./dbService";
+import { getDbConnection } from "./dbService.js";
+import { esPinPredeterminado, esPinValido, hashearPin, verificarPin } from "./pinSecurity.js";
 
 // =========================================================
 // MÓDULO DE ARQUEO Y CORTE DE CAJA (FASE 2)
@@ -139,41 +140,67 @@ export async function agregarStockInsumo(id, cantidadAgregar) {
 // MÓDULO DE RECURSOS HUMANOS (EMPLEADOS)
 // =========================================================
 
-export async function obtenerEmpleados() {
-  const db = await getDbConnection();
-  // Solo traemos a los cajeros para que el Admin no se borre a sí mismo por accidente
-  return await db.select("SELECT id, nombre, pin_acceso FROM usuarios WHERE rol = 'cajero' ORDER BY id");
+export async function obtenerEmpleados(database = null) {
+  const db = database ?? await getDbConnection();
+  return await db.select("SELECT id, nombre FROM usuarios WHERE rol = 'cajero' ORDER BY id");
 }
 
-export async function crearEmpleado(nombre, pin) {
-  const db = await getDbConnection();
+export async function crearEmpleado(nombre, pin, database = null) {
+  const nombreLimpio = typeof nombre === "string" ? nombre.trim() : "";
+  if (!nombreLimpio || nombreLimpio.length > 50) throw new Error("NOMBRE_INVALIDO");
+  if (!esPinValido(pin)) throw new Error("PIN_INVALIDO");
+  if (esPinPredeterminado(pin)) throw new Error("PIN_PREDETERMINADO");
+  const db = database ?? await getDbConnection();
 
-  // Validamos que el PIN no exista ya en el sistema
-  const existe = await db.select("SELECT id FROM usuarios WHERE pin_acceso = $1", [pin]);
-  if (existe.length > 0) {
-    throw new Error("PIN_DUPLICADO");
+  const usuarios = await db.select("SELECT pin_acceso FROM usuarios");
+  for (const usuario of usuarios) {
+    if (await verificarPin(pin, usuario.pin_acceso)) throw new Error("PIN_DUPLICADO");
   }
 
+  const hash = await hashearPin(pin);
   await db.execute(
     "INSERT INTO usuarios (nombre, pin_acceso, rol) VALUES ($1, $2, 'cajero')",
-    [nombre, pin]
+    [nombreLimpio, hash]
   );
 }
 
-export async function eliminarEmpleado(id) {
-  const db = await getDbConnection();
-  await db.execute("DELETE FROM usuarios WHERE id = $1", [id]);
+export async function eliminarEmpleado(id, database = null) {
+  const db = database ?? await getDbConnection();
+  await db.execute("DELETE FROM usuarios WHERE id = $1 AND rol = 'cajero'", [id]);
 }
 
-export async function actualizarPinAdmin(nuevoPin) {
-  const db = await getDbConnection();
+export async function actualizarPinEmpleado(id, nuevoPin, database = null) {
+  if (!esPinValido(nuevoPin)) throw new Error("PIN_INVALIDO");
+  if (esPinPredeterminado(nuevoPin)) throw new Error("PIN_PREDETERMINADO");
+  const db = database ?? await getDbConnection();
+  const empleado = await db.select("SELECT id FROM usuarios WHERE id = $1 AND rol = 'cajero'", [id]);
+  if (empleado.length === 0) throw new Error("EMPLEADO_NO_ENCONTRADO");
 
-  // Validamos que el PIN no esté en uso por nadie más
-  const existe = await db.select("SELECT id FROM usuarios WHERE pin_acceso = $1", [nuevoPin]);
-  if (existe.length > 0) {
-    throw new Error("PIN_DUPLICADO");
+  const usuarios = await db.select("SELECT pin_acceso FROM usuarios WHERE id <> $1", [id]);
+  for (const usuario of usuarios) {
+    if (await verificarPin(nuevoPin, usuario.pin_acceso)) throw new Error("PIN_DUPLICADO");
   }
 
-  // Actualizamos específicamente la cuenta del administrador
-  await db.execute("UPDATE usuarios SET pin_acceso = $1 WHERE rol = 'admin'", [nuevoPin]);
+  const hash = await hashearPin(nuevoPin);
+  await db.execute("UPDATE usuarios SET pin_acceso = $1 WHERE id = $2 AND rol = 'cajero'", [hash, id]);
+}
+
+export async function actualizarPinAdmin(usuarioId, nuevoPin, database = null) {
+  if (!esPinValido(nuevoPin)) throw new Error("PIN_INVALIDO");
+  if (esPinPredeterminado(nuevoPin)) throw new Error("PIN_PREDETERMINADO");
+  const db = database ?? await getDbConnection();
+
+  const admin = await db.select(
+    "SELECT id FROM usuarios WHERE id = $1 AND rol = 'admin'",
+    [usuarioId],
+  );
+  if (admin.length === 0) throw new Error("ADMIN_NO_ENCONTRADO");
+
+  const usuarios = await db.select("SELECT id, pin_acceso FROM usuarios WHERE id <> $1", [usuarioId]);
+  for (const usuario of usuarios) {
+    if (await verificarPin(nuevoPin, usuario.pin_acceso)) throw new Error("PIN_DUPLICADO");
+  }
+
+  const hash = await hashearPin(nuevoPin);
+  await db.execute("UPDATE usuarios SET pin_acceso = $1 WHERE id = $2 AND rol = 'admin'", [hash, usuarioId]);
 }

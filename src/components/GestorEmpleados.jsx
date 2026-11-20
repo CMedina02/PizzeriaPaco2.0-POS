@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { obtenerEmpleados, crearEmpleado, eliminarEmpleado } from "../services/adminService";
+import { obtenerEmpleados, crearEmpleado, eliminarEmpleado, actualizarPinEmpleado } from "../services/adminService";
 import "./ProductosCRUD.css";
 
 function GestorEmpleados() {
@@ -35,6 +35,8 @@ function GestorEmpleados() {
         } catch (error) {
             if (error.message === "PIN_DUPLICADO") {
                 alert("Ese PIN ya está en uso por otro empleado o por el Administrador. Elija uno distinto.");
+            } else if (error.message === "PIN_PREDETERMINADO") {
+                alert("Elija un PIN distinto de 1234 y 9999.");
             } else {
                 alert("Error al registrar el empleado.");
             }
@@ -48,6 +50,27 @@ function GestorEmpleados() {
                 cargarDatos();
             } catch (error) {
                 alert("Error al eliminar el registro.");
+            }
+        }
+    }
+
+    async function manejarCambioPin(id, nombre) {
+        const nuevoPin = window.prompt(`Ingresa el nuevo PIN de cuatro dígitos para ${nombre}:`);
+        if (nuevoPin === null) return;
+        if (!/^\d{4}$/.test(nuevoPin)) {
+            alert("El PIN debe contener exactamente cuatro dígitos.");
+            return;
+        }
+        try {
+            await actualizarPinEmpleado(id, nuevoPin);
+            alert("PIN actualizado. El empleado podrá usarlo en su próximo acceso.");
+        } catch (error) {
+            if (error.message === "PIN_DUPLICADO") {
+                alert("Ese PIN ya está asignado a otra cuenta.");
+            } else if (error.message === "PIN_PREDETERMINADO") {
+                alert("Elija un PIN distinto de 1234 y 9999.");
+            } else {
+                alert("No se pudo actualizar el PIN del empleado.");
             }
         }
     }
@@ -75,7 +98,7 @@ function GestorEmpleados() {
                         type="text"
                         value={nuevoPin}
                         onChange={(e) => setNuevoPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                        placeholder="Ej. 1234"
+                        placeholder="Cuatro dígitos"
                         maxLength="4"
                     />
                 </div>
@@ -91,7 +114,7 @@ function GestorEmpleados() {
                     <tr>
                         <th>ID</th>
                         <th>Nombre</th>
-                        <th>PIN Registrado</th>
+                        <th>Acceso</th>
                         <th>Acciones</th>
                     </tr>
                 </thead>
@@ -100,12 +123,14 @@ function GestorEmpleados() {
                         <tr key={emp.id}>
                             <td>{emp.id}</td>
                             <td><strong>{emp.nombre}</strong></td>
-                            <td>
-                                <span style={{ letterSpacing: '2px', fontFamily: 'monospace', fontSize: '1.1rem' }}>
-                                    {emp.pin_acceso}
-                                </span>
-                            </td>
+                            <td>PIN configurado</td>
                             <td className="acciones-celda">
+                                <button
+                                    className="btn-guardar"
+                                    onClick={() => manejarCambioPin(emp.id, emp.nombre)}
+                                >
+                                    Cambiar PIN
+                                </button>
                                 <button
                                     className="btn-eliminar"
                                     onClick={() => manejarEliminacion(emp.id, emp.nombre)}

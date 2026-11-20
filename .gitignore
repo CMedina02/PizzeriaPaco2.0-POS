@@ -12,6 +12,15 @@ dist
 dist-ssr
 *.local
 
+# Local application data and Rust build output
+*.db
+*.sqlite
+*.sqlite3
+*.sqlite-wal
+*.sqlite-shm
+/target
+/src-tauri/target
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
